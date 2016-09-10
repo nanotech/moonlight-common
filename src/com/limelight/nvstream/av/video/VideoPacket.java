@@ -61,13 +61,23 @@ public class VideoPacket implements RtpPacketFields {
 	
 	public void initializeWithLength(int length)
 	{
+		// Read the RTP header byte
+		byteBuffer.rewind();
+		byte header = byteBuffer.get();
+		
 		// Read the RTP sequence number field (big endian)
 		byteBuffer.position(2);
 		rtpSequenceNumber = byteBuffer.getShort();
 		rtpSequenceNumber = (short)(((rtpSequenceNumber << 8) & 0xFF00) | (((rtpSequenceNumber >> 8) & 0x00FF)));
 		
+		// If an extension is present, read the fields
+		int rtpHeaderSize = RtpPacket.FIXED_HEADER_SIZE;
+		if ((header & RtpPacket.FLAG_EXTENSION) != 0) {
+			rtpHeaderSize += 4; // 2 additional fields
+		}
+		
 		// Skip the rest of the RTP header
-		byteBuffer.position(RtpPacket.MAX_HEADER_SIZE);
+		byteBuffer.position(rtpHeaderSize);
 		
 		// Read the video header fields
 		streamPacketIndex = (byteBuffer.getInt() >> 8) & 0xFFFFFF;
@@ -75,7 +85,7 @@ public class VideoPacket implements RtpPacketFields {
 		flags = byteBuffer.getInt() & 0xFF;
 		
 		// Data offset includes the RTP header
-		dataOffset = RtpPacket.MAX_HEADER_SIZE + HEADER_SIZE;
+		dataOffset = rtpHeaderSize + HEADER_SIZE;
 		
 		// Update descriptor length
 		buffer.length = length;
